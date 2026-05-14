@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Smart Parking Dashboard</title>
+
+    <meta http-equiv="refresh" content="3">
+
+    <style>
+
+        body{
+            font-family: Arial;
+            background:#f4f4f4;
+            text-align:center;
+        }
+
+        h1{
+            margin-top:30px;
+        }
+
+        .stats{
+            margin-top:20px;
+            font-size:22px;
+        }
+
+        .container{
+            margin-top:40px;
+        }
+
+        .slot{
+            width:120px;
+            height:120px;
+            display:inline-block;
+            margin:20px;
+            line-height:120px;
+            color:white;
+            font-size:22px;
+            border-radius:12px;
+            font-weight:bold;
+        }
+
+        .free{
+            background:green;
+        }
+
+        .occupied{
+            background:red;
+        }
+
+        .queue{
+            margin-top:30px;
+            font-size:24px;
+            color:#333;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Smart Parking Optimization Dashboard</h1>
+
+    <div class="stats">
+
+        <p>Total Slots: 5</p>
+        <p>Occupied Slots: {{ occupied_count }}</p>
+        <p>Free Slots: {{ free_count }}</p>
+
+    </div>
+
+    <div class="container">
+
+        {% for slot in parking_slots %}
+
+            {% if slot == 0 %}
+
+                <div class="slot free">
+                    FREE
+                </div>
+
+            {% else %}
+
+                <div class="slot occupied">
+                    OCCUPIED
+                </div>
+
+            {% endif %}
+
+        {% endfor %}
+
+    </div>
+
+    <div class="queue">
+
+        Incoming Vehicle Queue: {{ vehicle_queue }}
+
+    </div>
+
+</body>
+
+</html>
