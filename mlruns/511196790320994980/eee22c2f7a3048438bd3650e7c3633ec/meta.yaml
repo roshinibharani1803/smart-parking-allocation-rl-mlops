@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Roshini/Desktop/smart-parking-rl-mlops/mlruns/511196790320994980/eee22c2f7a3048438bd3650e7c3633ec/artifacts
+end_time: 1778397851507
+entry_point_name: ''
+experiment_id: '511196790320994980'
+lifecycle_stage: active
+run_id: eee22c2f7a3048438bd3650e7c3633ec
+run_name: persistent-hound-827
+run_uuid: eee22c2f7a3048438bd3650e7c3633ec
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1778397851324
+status: 3
+tags: []
+user_id: Roshini
