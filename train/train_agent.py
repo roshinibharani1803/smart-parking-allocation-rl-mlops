@@ -16,6 +16,11 @@ import matplotlib.pyplot as plt
 
 from env.parking_env import ParkingEnv
 
+# =========================
+# MLflow Tracking Backend
+# =========================
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
 # Create environment
 env = ParkingEnv()
 
@@ -23,10 +28,10 @@ env = ParkingEnv()
 q_table = np.zeros((32, env.total_slots))
 
 # Hyperparameters
-alpha = 0.05
-gamma = 0.85
+alpha = 0.1
+gamma = 0.9
 epsilon = 1.0
-epsilon_decay = 0.998
+epsilon_decay = 0.995
 min_epsilon = 0.01
 
 episodes = 1000
@@ -57,7 +62,9 @@ with mlflow.start_run(run_name=run_name):
 
     print("\nTraining Started...\n")
 
-    # Training loop
+    # =========================
+    # Training Loop
+    # =========================
     for episode in range(episodes):
 
         state, _ = env.reset()
@@ -75,14 +82,9 @@ with mlflow.start_run(run_name=run_name):
 
             # Exploration vs Exploitation
             if random.uniform(0, 1) < epsilon:
-
                 action = env.action_space.sample()
-
             else:
-
-                action = np.argmax(
-                    q_table[state_index]
-                )
+                action = np.argmax(q_table[state_index])
 
             next_state, reward, done, _, _ = env.step(action)
 
@@ -91,7 +93,7 @@ with mlflow.start_run(run_name=run_name):
                 2
             )
 
-            # Q-learning update
+            # Q-learning Update
             q_table[state_index, action] = (
                 q_table[state_index, action]
                 + alpha * (
@@ -102,10 +104,9 @@ with mlflow.start_run(run_name=run_name):
             )
 
             state_index = next_state_index
-
             total_reward += reward
 
-        # Reduce exploration gradually
+        # Decay epsilon
         epsilon = max(
             min_epsilon,
             epsilon * epsilon_decay
@@ -113,7 +114,7 @@ with mlflow.start_run(run_name=run_name):
 
         rewards_per_episode.append(total_reward)
 
-        # Log metrics every 100 episodes
+        # Log every 100 episodes
         if episode % 100 == 0:
 
             print(
@@ -127,20 +128,23 @@ with mlflow.start_run(run_name=run_name):
             )
 
     # =========================
-    # MODEL VERSIONING
+    # Create folders if missing
     # =========================
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
 
+    # =========================
+    # Save Q-table
+    # =========================
     model_path = f"models/q_table_{timestamp}.npy"
 
     np.save(model_path, q_table)
 
-    # Log model artifact
     mlflow.log_artifact(model_path)
 
     # =========================
-    # REWARD GRAPH
+    # Reward Graph
     # =========================
-
     plt.figure(figsize=(10, 5))
 
     plt.plot(rewards_per_episode)
@@ -153,7 +157,6 @@ with mlflow.start_run(run_name=run_name):
 
     plt.savefig(graph_path)
 
-    # Log graph artifact
     mlflow.log_artifact(graph_path)
 
     plt.close()

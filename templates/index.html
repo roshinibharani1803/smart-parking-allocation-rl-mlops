@@ -384,29 +384,55 @@
 
             {% for slot in slots %}
 
-            <div class="slot-container">
+        <div class="slot-container">
 
-                <div class="slot-label">
-                    P{{ loop.index }}
+            <div class="slot-label">
+                {{ slot.id }}
+            </div>
+
+            <div class="slot">
+
+                {% if slot.status == "occupied" %}
+
+                    <div class="car-inside occupied-car"></div>
+
+                {% elif slot.status == "selected" %}
+
+                    <div class="car-inside selected-car"></div>
+
+                {% endif %}
+
+            </div>
+
+            <div style="margin-top:10px;font-size:14px;text-align:center;">
+
+                <div>
+                    📍 {{ slot.distance }} m
                 </div>
 
-                <div class="slot">
-
-                    {% if slot == "occupied" %}
-
-                        <div class="car-inside occupied-car"></div>
-
-                    {% elif slot == "selected" %}
-
-                        <div class="car-inside selected-car"></div>
-
+                <div>
+                    ⚡
+                    {% if slot.charger %}
+                        Yes
+                    {% else %}
+                        No
                     {% endif %}
+                </div>
 
+                <div>
+                    👑
+                    {% if slot.vip %}
+                        Yes
+                    {% else %}
+                        No
+                    {% endif %}
                 </div>
 
             </div>
 
-            {% endfor %}
+        </div>
+
+        {% endfor %}
 
         </div>
 

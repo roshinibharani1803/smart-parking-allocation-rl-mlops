@@ -1,20 +1,45 @@
 from flask import Flask, render_template, redirect, url_for
 import numpy as np
+import glob
+import os
+
 from env.parking_env import ParkingEnv
 
 app = Flask(__name__)
 
-# Load environment
+# ==========================
+# Load Environment
+# ==========================
 env = ParkingEnv()
 
-# Load trained Q-table
-q_table = np.load("models/q_table.npy")
+# ==========================
+# Load Latest Trained Model
+# ==========================
+model_files = glob.glob("models/q_table_*.npy")
 
-# Random initial parking state
-current_state = np.random.randint(
-    0,
-    2,
-    size=env.total_slots
+if not model_files:
+    raise FileNotFoundError(
+        "No trained Q-table found! Train the model first."
+    )
+
+latest_model = max(
+    model_files,
+    key=os.path.getctime
+)
+
+q_table = np.load(latest_model)
+
+print(f"\nLoaded Model: {latest_model}")
+
+# ==========================
+# Initial Parking State
+# ==========================
+current_state = np.array(
+    np.random.choice(
+        [0, 1],
+        size=env.total_slots,
+        p=[0.6, 0.4]
+    )
 )
 
 # Dashboard variables
@@ -22,11 +47,12 @@ total_vehicles = 0
 last_reward = 0
 last_selected_slot = None
 allocation_status = "Waiting for incoming vehicle..."
-
-# Vehicle queue
-vehicle_queue = 3
+vehicle_queue = np.random.randint(2, 5)
 
 
+# ==========================
+# HOME PAGE
+# ==========================
 @app.route("/")
 def home():
 
@@ -42,7 +68,6 @@ def home():
     free_slots = 0
     occupied_slots = 0
 
-    # Predict next best slot
     selected_slot = None
 
     if np.any(current_state == 0):
@@ -52,27 +77,35 @@ def home():
             2
         )
 
-        selected_slot = np.argmax(
-            q_table[state_index]
+        selected_slot = int(
+            np.argmax(q_table[state_index])
         )
 
-    # Generate slot UI
     for i, value in enumerate(current_state):
 
-        if i == selected_slot and value == 0:
+        slot = {
+            "id": f"P{i+1}",
+            "status": "",
+            "distance": env.slot_info[i]["distance"],
+            "charger": env.slot_info[i]["charger"],
+            "vip": env.slot_info[i]["vip"]
+        }
 
-            slots.append("selected")
+        if value == 0:
+
             free_slots += 1
 
-        elif value == 0:
-
-            slots.append("free")
-            free_slots += 1
+            if i == selected_slot:
+                slot["status"] = "selected"
+            else:
+                slot["status"] = "free"
 
         else:
 
-            slots.append("occupied")
             occupied_slots += 1
+            slot["status"] = "occupied"
+
+        slots.append(slot)
 
     occupancy = int(
         (occupied_slots / env.total_slots) * 100
@@ -93,6 +126,9 @@ def home():
     )
 
 
+# ==========================
+# ALLOCATE VEHICLE
+# ==========================
 @app.route("/allocate")
 def allocate():
 
@@ -103,97 +139,61 @@ def allocate():
     global allocation_status
     global vehicle_queue
 
-    # Check if parking full
     if np.all(current_state == 1):
 
         allocation_status = "Parking lot is full!"
 
         return redirect(url_for("home"))
 
-    # Convert state to index
     state_index = int(
         "".join(map(str, current_state)),
         2
     )
 
-    # Exploration vs exploitation
-    epsilon = np.random.uniform(0, 1)
+    # Always exploit learned policy
+    action = int(
+        np.argmax(q_table[state_index])
+    )
 
-    # 40% exploration
-    if epsilon < 0.4:
+    last_selected_slot = f"P{action+1}"
 
-        action = np.random.randint(
-            0,
-            env.total_slots
-        )
+    # Use actual environment
+    env.state = current_state.copy()
 
-        decision_type = "Exploration"
+    next_state, reward, done, _, _ = env.step(action)
 
-    # 60% exploitation
-    else:
+    current_state = next_state
 
-        # Small randomness even in AI decisions
-        if np.random.rand() < 0.3:
+    last_reward = reward
 
-            available_actions = np.where(
-                current_state == 0
-            )[0]
-
-            action = np.random.choice(
-                available_actions
-            )
-
-        else:
-
-            action = np.argmax(
-                q_table[state_index]
-            )
-
-        decision_type = "Exploitation"
-
-    last_selected_slot = f"P{action + 1}"
-
-    # Correct allocation
-    if current_state[action] == 0:
-
-        current_state[action] = 1
-
-        # Variable positive rewards
-        last_reward = np.random.choice(
-            [5, 10, 15]
-        )
+    if reward >= 0:
 
         allocation_status = (
-            f"{decision_type}: Vehicle allocated successfully to P{action + 1}"
+            f"Vehicle allocated successfully to P{action+1}"
         )
 
         total_vehicles += 1
 
-        # Update queue dynamically
         vehicle_queue = max(
             0,
             vehicle_queue - 1
         )
 
-        # Random new incoming vehicles
-        vehicle_queue += np.random.randint(1, 3)
+        if np.random.rand() < 0.5:
+            vehicle_queue += 1
 
-    # Wrong allocation
     else:
 
-        # Variable negative rewards
-        last_reward = np.random.choice(
-            [-5, -10, -15]
-        )
-
         allocation_status = (
-            f"{decision_type}: Wrong allocation! "
-            f"P{action + 1} already occupied."
+            f"Allocation failed! P{action+1} is already occupied."
         )
 
     return redirect(url_for("home"))
 
 
+# ==========================
+# RESET ENVIRONMENT
+# ==========================
 @app.route("/reset")
 def reset():
 
@@ -204,11 +204,12 @@ def reset():
     global allocation_status
     global vehicle_queue
 
-    # Random parking initialization
-    current_state = np.random.randint(
-        0,
-        2,
-        size=env.total_slots
+    current_state = np.array(
+        np.random.choice(
+            [0, 1],
+            size=env.total_slots,
+            p=[0.6, 0.4]
+        )
     )
 
     total_vehicles = 0
@@ -217,7 +218,6 @@ def reset():
 
     last_selected_slot = None
 
-    # Random queue size
     vehicle_queue = np.random.randint(2, 5)
 
     allocation_status = (
@@ -227,6 +227,12 @@ def reset():
     return redirect(url_for("home"))
 
 
+# ==========================
+# RUN APP
+# ==========================
 if __name__ == "__main__":
-
-    app.run(debug=True,port=5001)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
